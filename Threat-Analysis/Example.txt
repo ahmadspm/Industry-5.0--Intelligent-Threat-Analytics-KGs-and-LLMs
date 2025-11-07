@@ -1,0 +1,88 @@
+CALL gds.graph.project.cypher(
+  'q1_raw',
+  'MATCH (n) RETURN id(n) AS id',
+  '
+  MATCH (a)-[r:ATTACKABLE|RUNS|HAS_COMPONENT]-(b)
+  RETURN id(a) AS source, id(b) AS target
+  '
+);
+
+// Change ATTACKABLE to COMMUNICATES_WITH if your node label is COMMUNICATES_WITH. 
+
+
+// ===================================
+// Yen Algorithm
+MATCH (e:Product) WHERE e.name IN ["MQTT_Broker_1"]
+WITH collect(id(e)) AS entryIds
+MATCH (t:Product) WHERE t.name IN ["Safety_PLC_2"]
+WITH entryIds, collect(id(t)) AS targetIds
+
+UNWIND entryIds AS s
+UNWIND targetIds AS t
+CALL gds.shortestPath.yens.stream('q1_raw', {
+  sourceNode: s,
+  targetNode: t,
+  k: $K_PATHS
+  relationshipWeightProperty: 'weight'
+})
+YIELD path
+WITH
+  path,
+  head(nodes(path)) AS srcNode,
+  last(nodes(path)) AS dstNode,
+  size(relationships(path)) AS hop
+WITH
+  coalesce(srcNode.name, srcNode.product_id, elementId(srcNode)) AS source,
+  coalesce(dstNode.name, dstNode.product_id, elementId(dstNode)) AS target,
+  collect(path) AS paths,
+  collect(hop)  AS hops
+RETURN
+  source,
+  target,
+  size(paths) AS path_count,
+  CASE WHEN size(hops)=0 THEN null
+       ELSE reduce(s = 0.0, h IN hops | s + h) / toFloat(size(hops))
+  END AS avg_hops,
+  CASE WHEN size(hops)=0 THEN null
+       ELSE reduce(m = head(hops), h IN hops | CASE WHEN h < m THEN h ELSE m END)
+  END AS min_hops,
+  CASE WHEN size(hops)=0 THEN null
+       ELSE reduce(m = head(hops), h IN hops | CASE WHEN h > m THEN h ELSE m END)
+  END AS max_hops
+ORDER BY avg_hops ASC;
+// ===============================================================
+
+// Djikstra Algorithm
+// Drop previous projected graph if exist
+CALL gds.graph.drop('attack_graph', false);
+
+// Project new graph
+CALL gds.graph.project.cypher(
+  'attack_graph',
+  'MATCH (n:Product) RETURN id(n) AS id',
+  '
+  MATCH (a:Product)-[r:ATTACKABLE]-(b:Product)
+  RETURN id(a) AS source, id(b) AS target, r.riskWeight AS weight
+  '
+);
+
+// Define source and destination nodes
+MATCH (src:Product) WHERE src.product_id = "E_ENT_10"
+MATCH (dst:Product) WHERE dst.product_id = "D_DMZ_02"
+
+// Compute shortest weighted path
+CALL gds.shortestPath.dijkstra.stream('attack_graph', {
+  sourceNode: id(src),
+  targetNode: id(dst),
+  relationshipWeightProperty: 'weight'
+})
+YIELD totalCost, path
+
+// Return path details
+RETURN
+  coalesce(src.product_id, src.name) AS source,
+  coalesce(dst.product_id, dst.name) AS target,
+  totalCost,
+  [n IN nodes(path) | coalesce(n.product_id, n.name)] AS path_nodes
+ORDER BY totalCost ASC
+LIMIT 5;
