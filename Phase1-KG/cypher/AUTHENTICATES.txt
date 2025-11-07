@@ -1,0 +1,69 @@
+CREATE CONSTRAINT IF NOT EXISTS FOR (p:Product) REQUIRE p.product_id IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (a:Account) REQUIRE a.id IS UNIQUE;
+
+LOAD CSV WITH HEADERS FROM 'file:///AUTHENTICATES.csv' AS row
+WITH
+  trim(row.account_id) AS accId,
+  toLower(coalesce(row.target_kind,'')) AS kind,
+  trim(coalesce(row.product_id,'')) AS productIdCol,
+  trim(coalesce(row.target_id,''))  AS targetId,
+  row.identity AS ident,
+  row.use AS useVal
+WITH accId,
+     CASE
+       WHEN productIdCol <> '' THEN productIdCol
+       WHEN (kind CONTAINS 'product' OR kind CONTAINS 'device' OR kind CONTAINS 'asset') AND targetId <> '' THEN targetId
+       ELSE ''
+     END AS pid,
+     ident, useVal
+WHERE accId <> '' AND pid <> ''
+
+CALL {
+  WITH accId, pid, ident, useVal
+  MATCH (a:Account {id: accId})
+  MATCH (p:Product {product_id: pid})
+  MERGE (a)-[r:AUTHENTICATES]->(p)
+  SET r.identity = CASE WHEN ident IS NULL OR trim(ident) = '' THEN r.identity ELSE ident END,
+      r.use      = CASE WHEN useVal IS NULL OR trim(useVal) = '' THEN r.use      ELSE useVal END
+} IN TRANSACTIONS OF 20000 ROWS;
+
+
+// Constraints (safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS FOR (a:Account) REQUIRE a.id IS UNIQUE;
+CREATE CONSTRAINT IF NOT EXISTS FOR (h:Host)    REQUIRE h.id IS UNIQUE;
+
+LOAD CSV WITH HEADERS FROM 'file:///AUTHENTICATES.csv' AS row
+WITH
+  trim(row.account_id) AS accId,
+  toLower(coalesce(row.target_kind,'')) AS kind,
+  trim(coalesce(row.host_id,''))  AS hostIdCol,
+  trim(coalesce(row.host_ip,''))  AS hostIpCol,
+  trim(coalesce(row.target_id,'')) AS targetId,
+  row.identity AS ident,
+  row.use AS useVal
+// Normalize host key/ip
+WITH accId,
+     CASE
+       WHEN hostIdCol <> '' THEN hostIdCol
+       WHEN kind CONTAINS 'host' AND targetId <> '' THEN targetId
+       ELSE ''
+     END AS hostKey,
+     CASE
+       WHEN hostIpCol <> '' THEN hostIpCol
+       WHEN kind CONTAINS 'host' AND targetId <> '' THEN targetId
+       ELSE ''
+     END AS hostIp,
+     ident, useVal
+WHERE accId <> '' AND (hostKey <> '' OR hostIp <> '')
+
+CALL {
+  WITH accId, hostKey, hostIp, ident, useVal
+  MATCH (a:Account {id: accId})
+  OPTIONAL MATCH (h1:Host {id: hostKey})
+  OPTIONAL MATCH (h2:Host {ip: hostIp})
+  WITH a, coalesce(h1,h2) AS h, ident, useVal
+  WHERE h IS NOT NULL
+  MERGE (a)-[r:AUTHENTICATES]->(h)
+  SET r.identity = CASE WHEN ident IS NULL OR trim(ident) = '' THEN r.identity ELSE ident END,
+      r.use      = CASE WHEN useVal IS NULL OR trim(useVal) = '' THEN r.use      ELSE useVal END
+} IN TRANSACTIONS OF 20000 ROWS;

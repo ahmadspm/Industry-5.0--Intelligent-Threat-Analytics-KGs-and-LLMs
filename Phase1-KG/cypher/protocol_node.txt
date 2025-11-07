@@ -1,0 +1,30 @@
+// Unique id for protocols (safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (pr:Protocol) REQUIRE pr.protocol_id IS UNIQUE;
+
+// Load CSV (place protocols.csv in Neo4j's /import)
+LOAD CSV WITH HEADERS FROM 'file:///protocol_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.protocol_id) AS pid,
+    CASE WHEN row.layer IS NULL OR trim(row.layer) = '' THEN NULL ELSE row.layer END AS layerVal,
+    CASE WHEN row.port  IS NULL OR trim(row.port)  = '' THEN NULL ELSE trim(row.port) END AS portRaw,
+    toLower(coalesce(trim(row.ics_specific), ''))  AS icsRaw
+  WHERE pid <> ''
+
+  WITH pid, layerVal, portRaw,
+       CASE
+         WHEN icsRaw IN ['true','yes','y','1']  THEN true
+         WHEN icsRaw IN ['false','no','n','0']  THEN false
+         ELSE NULL
+       END AS icsFlag,
+       CASE WHEN portRaw =~ '^\d+$' THEN toInteger(portRaw) ELSE NULL END AS portInt
+
+  MERGE (p:Protocol {protocol_id: pid})
+  SET p.layer        = layerVal,
+      p.port         = portRaw,     // keep original (supports "161/162", "443,8443", etc.)
+      p.port_int     = portInt,     // numeric when a single integer
+      p.ics_specific = icsFlag
+} IN TRANSACTIONS OF 1000 ROWS;

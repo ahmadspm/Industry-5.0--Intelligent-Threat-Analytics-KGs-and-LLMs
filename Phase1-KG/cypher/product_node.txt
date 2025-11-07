@@ -1,0 +1,32 @@
+// Constraint (safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (p:Product) REQUIRE p.product_id IS UNIQUE;
+
+// Optional index to speed lookups by vendor+product
+CREATE INDEX product_vendor_name IF NOT EXISTS
+FOR (p:Product) ON (p.vendor, p.product);
+
+// Batched load (put product_node.csv in Neo4j's import dir)
+LOAD CSV WITH HEADERS FROM 'file:///product_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.product_id) AS product_id,
+    CASE WHEN row.product IS NULL OR trim(row.product) = '' THEN NULL ELSE row.product END AS product,
+    CASE WHEN row.vendor  IS NULL OR trim(row.vendor)  = '' THEN NULL ELSE row.vendor  END AS vendor,
+    CASE WHEN row.model   IS NULL OR trim(row.model)   = '' THEN NULL ELSE row.model   END AS model,
+    CASE WHEN row.type    IS NULL OR trim(row.type)    = '' THEN NULL ELSE row.type    END AS typeVal,
+    CASE WHEN row.criticality IS NULL OR trim(row.criticality) = '' THEN NULL ELSE toInteger(row.criticality) END AS criticalityVal,
+    CASE WHEN row.`Critical_Infrastructure` IS NULL OR trim(row.`Critical_Infrastructure`) = '' THEN NULL ELSE row.`Critical_Infrastructure` END AS ciVal,
+    CASE WHEN row.`ICS-CERT_Number` IS NULL OR trim(row.`ICS-CERT_Number`) = '' THEN NULL ELSE row.`ICS-CERT_Number` END AS icsVal
+
+  MERGE (p:Product {product_id: product_id})
+  SET p.product                 = product,
+      p.vendor                  = vendor,
+      p.model                   = model,
+      p.type                    = typeVal,
+      p.criticality             = criticalityVal,              // already normalized 1–5
+      p.`Critical_Infrastructure` = ciVal,
+      p.`ICS-CERT_Number`         = icsVal
+} IN TRANSACTIONS OF 1000 ROWS;

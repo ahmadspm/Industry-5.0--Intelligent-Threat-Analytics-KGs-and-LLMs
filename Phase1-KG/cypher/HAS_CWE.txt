@@ -1,0 +1,20 @@
+// --- Constraints (safe to re-run)
+CREATE CONSTRAINT cwe_id_unique IF NOT EXISTS
+FOR (c:CWE) REQUIRE c.cwe_id IS UNIQUE;
+
+CREATE CONSTRAINT cwe_uri_unique IF NOT EXISTS
+FOR (c:CWE) REQUIRE c.cwe_uri IS UNIQUE;
+
+// --- Batched load (put cwe_node.csv in the Neo4j "import" dir)
+LOAD CSV WITH HEADERS FROM 'file:///cwe_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH trim(row.id)        AS cwe_id,
+       trim(row.cwe_uri)   AS cwe_uri,
+       row.title           AS title
+
+  MERGE (c:CWE {cwe_id: cwe_id})
+  SET  c.cwe_uri = cwe_uri,
+       c.title   = title
+} IN TRANSACTIONS OF 1000 ROWS;

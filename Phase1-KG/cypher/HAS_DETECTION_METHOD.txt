@@ -1,0 +1,21 @@
+// Optional constraints (safe to re-run)
+CREATE CONSTRAINT cwe_id_unique IF NOT EXISTS
+FOR (c:CWE) REQUIRE c.cwe_id IS UNIQUE;
+
+CREATE CONSTRAINT cwe_det_id_unique IF NOT EXISTS
+FOR (d:CWEDetection) REQUIRE d.detection_id IS UNIQUE;
+
+// Create relationships from file placed in Neo4j's import dir
+LOAD CSV WITH HEADERS FROM 'file:///HAS_DETECTION_METHOD.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH trim(row.cwe_id) AS cweId, trim(row.id) AS detId
+  WHERE cweId <> '' AND detId <> ''
+
+  // Case-insensitive match for CWE IDs (handles cwe-1004 vs CWE-1004)
+  MATCH (w:CWE) WHERE toLower(w.cwe_id) = toLower(cweId)
+  MATCH (d:CWEDetection {detection_id: detId})
+
+  MERGE (w)-[:HAS_DETECTION]->(d)
+} IN TRANSACTIONS OF 1000 ROWS;

@@ -1,0 +1,24 @@
+// Optional: constraints (safe to re-run)
+CREATE CONSTRAINT cve_id_unique IF NOT EXISTS
+FOR (c:CVE) REQUIRE c.cve_id IS UNIQUE;
+
+CREATE CONSTRAINT cwe_id_unique IF NOT EXISTS
+FOR (w:CWE) REQUIRE w.cwe_id IS UNIQUE;
+
+// Load the mapping file placed in the Neo4j import dir
+LOAD CSV WITH HEADERS FROM 'file:///HAS_CWE.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH trim(row.cve_id) AS cveId,
+       trim(row.cwe_id) AS cweIdRaw
+  // Skip empty lines
+  WHERE cveId <> '' AND cweIdRaw <> ''
+
+  // Case-insensitive match for CWE ids (CWE file may be upper/lower)
+  MATCH (c:CVE {cve_id: cveId})
+  MATCH (w:CWE)
+  WHERE toLower(w.cwe_id) = toLower(cweIdRaw)
+
+  MERGE (c)-[:HAS_CWE]->(w)
+} IN TRANSACTIONS OF 1000 ROWS;

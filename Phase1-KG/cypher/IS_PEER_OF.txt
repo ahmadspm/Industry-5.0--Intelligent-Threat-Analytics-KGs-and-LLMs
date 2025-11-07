@@ -1,0 +1,18 @@
+// Optional constraints
+CREATE CONSTRAINT cwe_id_unique IF NOT EXISTS
+FOR (c:CWE) REQUIRE c.cwe_id IS UNIQUE;
+
+// Batched load (no USING PERIODIC COMMIT)
+LOAD CSV WITH HEADERS FROM 'file:///IS_PEER_OF.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH toLower(trim(row.cwe_id))        AS parentId,
+       toLower(trim(row.related_cwe_id)) AS childId
+  WHERE parentId <> '' AND childId <> ''
+
+  MATCH (parent:CWE) WHERE toLower(parent.cwe_id) = parentId
+  MATCH (child:CWE)  WHERE toLower(child.cwe_id)  = childId
+
+  MERGE (child)-[:IS_PEER_OF]->(parent)
+} IN TRANSACTIONS OF 1000 ROWS;

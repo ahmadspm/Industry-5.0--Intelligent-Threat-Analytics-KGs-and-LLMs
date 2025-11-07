@@ -1,0 +1,18 @@
+// Constraint (safe to re-run; anonymous form)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (g:Group) REQUIRE g.group_id IS UNIQUE;
+
+// Batched load (put group_node.csv in Neo4j's import dir)
+LOAD CSV WITH HEADERS FROM 'file:///group_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id)  AS groupId,
+    CASE WHEN row.name IS NULL OR trim(row.name) = '' THEN NULL ELSE row.name END AS nameVal,
+    CASE WHEN row.description IS NULL OR trim(row.description) = '' THEN NULL ELSE row.description END AS descVal
+
+  MERGE (g:Group {group_id: groupId})
+  SET  g.name        = nameVal,
+       g.description = descVal
+} IN TRANSACTIONS OF 1000 ROWS;

@@ -1,0 +1,21 @@
+// (Optional) constraints – anonymous form works on Neo4j 5/4.4+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (c:CAPEC) REQUIRE c.capec_id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (cc:CAPECConsequence) REQUIRE cc.consequence_id IS UNIQUE;
+
+// Create relationships from CSV placed in neo4j's import dir
+LOAD CSV WITH HEADERS FROM 'file:///HAS_CAPEC_CONSEQUENCE.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH trim(row.id) AS capecId, trim(row.consequence_id) AS consId
+  WHERE capecId <> '' AND consId <> ''
+
+  // Match existing nodes (case-insensitive for CAPEC id just in case)
+  MATCH (c:CAPEC) WHERE toLower(c.capec_id) = toLower(capecId)
+  MATCH (cc:CAPECConsequence {consequence_id: consId})
+
+  MERGE (c)-[:HAS_CAPEC_CONSEQUENCE]->(cc)
+} IN TRANSACTIONS OF 1000 ROWS;

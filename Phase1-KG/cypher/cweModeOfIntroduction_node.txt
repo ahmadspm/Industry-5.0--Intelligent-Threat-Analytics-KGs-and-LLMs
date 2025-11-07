@@ -1,0 +1,18 @@
+// --- Constraint (safe to re-run)
+CREATE CONSTRAINT cwe_moi_id_unique IF NOT EXISTS
+FOR (m:CWEModeOfIntroduction) REQUIRE m.introduction_id IS UNIQUE;
+
+// --- Batched load (place cweModeOfIntroduction_node.csv in Neo4j's import dir)
+LOAD CSV WITH HEADERS FROM 'file:///cweModeOfIntroduction_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id) AS moiId,
+    CASE WHEN row.phase IS NULL OR trim(row.phase) = '' THEN NULL ELSE trim(row.phase) END AS phaseVal,
+    CASE WHEN row.note  IS NULL OR trim(row.note)  = '' THEN NULL ELSE row.note END AS noteVal
+
+  MERGE (m:CWEModeOfIntroduction {introduction_id: moiId})
+  SET  m.phase = phaseVal,
+       m.note  = noteVal
+} IN TRANSACTIONS OF 1000 ROWS;

@@ -1,0 +1,26 @@
+// Constraints (safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (p:Product)  REQUIRE p.product_id  IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (pr:Protocol) REQUIRE pr.protocol_id IS UNIQUE;
+
+// Loader (place USES_PROTOCOL.csv in Neo4j's /import directory)
+LOAD CSV WITH HEADERS FROM 'file:///USES_PROTOCOL.csv' AS row
+WITH
+  trim(row.product_id)  AS pid,
+  trim(row.protocol_id) AS prid,
+  CASE WHEN row.role     IS NULL OR trim(row.role)     = '' THEN NULL ELSE row.role     END AS roleVal,
+  CASE WHEN row.port     IS NULL OR trim(row.port)     = '' THEN NULL ELSE toString(row.port) END AS portVal,
+  CASE WHEN row.purpose  IS NULL OR trim(row.purpose)  = '' THEN NULL ELSE row.purpose  END AS purposeVal
+WHERE pid <> '' AND prid <> ''
+
+CALL {
+  WITH pid, prid, roleVal, portVal, purposeVal
+  MATCH (p:Product  {product_id:  pid})
+  MATCH (pr:Protocol {protocol_id: prid})
+  MERGE (p)-[r:USES_PROTOCOL]->(pr)
+  SET r.role    = coalesce(roleVal,    r.role),
+      r.port    = coalesce(portVal,    r.port),
+      r.purpose = coalesce(purposeVal, r.purpose)
+} IN TRANSACTIONS OF 20000 ROWS;

@@ -1,0 +1,16 @@
+// constraint (anonymous; safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (c:CAPEC) REQUIRE c.capec_id IS UNIQUE;
+
+// batched load (no USING PERIODIC COMMIT)
+LOAD CSV WITH HEADERS FROM 'file:///capec_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH trim(row.id) AS capecId,
+       CASE WHEN row.level IS NULL OR trim(row.level) = '' THEN NULL ELSE trim(row.level) END AS levelVal,
+       CASE WHEN row.description IS NULL OR trim(row.description) = '' THEN NULL ELSE row.description END AS descVal
+  MERGE (c:CAPEC {capec_id: capecId})
+  SET c.level = levelVal,
+      c.description = descVal
+} IN TRANSACTIONS OF 1000 ROWS;

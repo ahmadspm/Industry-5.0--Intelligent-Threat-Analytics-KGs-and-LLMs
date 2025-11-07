@@ -1,0 +1,29 @@
+// --- Constraint (safe to re-run)
+CREATE CONSTRAINT cwe_consequence_id_unique IF NOT EXISTS
+FOR (cc:CWEConsequence) REQUIRE cc.consequence_id IS UNIQUE;
+
+// --- Batched load (put cweConsequence_node.csv in Neo4j's import dir)
+LOAD CSV WITH HEADERS FROM 'file:///cweConsequence_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  // Prepare/normalize fields
+  WITH
+    trim(row.id) AS cid,
+    coalesce(row.scope, '')  AS scopeRaw,
+    coalesce(row.impact, '') AS impactRaw,
+    CASE WHEN row.note IS NULL OR trim(row.note) = '' THEN NULL ELSE row.note END AS noteVal
+
+  // Split scope/impact on "|" into lists, trimming empties
+  WITH
+    cid,
+    [s IN split(scopeRaw,  '|') WHERE trim(s) <> '' | trim(s)] AS scopes,
+    [i IN split(impactRaw, '|') WHERE trim(i) <> '' | trim(i)] AS impacts,
+    noteVal
+
+  // Upsert the node
+  MERGE (cc:CWEConsequence {consequence_id: cid})
+  SET  cc.scopes = scopes,
+       cc.impacts = impacts,
+       cc.note   = noteVal
+} IN TRANSACTIONS OF 1000 ROWS;

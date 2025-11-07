@@ -1,0 +1,23 @@
+// Optional constraints (safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (m:Mitigation) REQUIRE m.mitigation_id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (t:Technique)  REQUIRE t.technique_id  IS UNIQUE;
+
+// Create relationships from file placed in Neo4j's import dir
+LOAD CSV WITH HEADERS FROM 'file:///MITIGATES.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH trim(row.source_id) AS mitId,
+       trim(row.target_id) AS techId,
+       row.source_name      AS srcName
+  WHERE mitId <> '' AND techId <> ''
+
+  MATCH (m:Mitigation) WHERE toLower(m.mitigation_id) = toLower(mitId)
+  MATCH (t:Technique)  WHERE toLower(t.technique_id)  = toLower(techId)
+
+  MERGE (m)-[r:MITIGATES]->(t)
+  SET r.source_name = srcName   // optional metadata from the CSV
+} IN TRANSACTIONS OF 1000 ROWS;

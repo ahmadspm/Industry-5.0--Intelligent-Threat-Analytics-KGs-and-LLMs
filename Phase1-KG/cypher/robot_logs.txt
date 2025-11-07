@@ -1,0 +1,92 @@
+// constraints
+CREATE CONSTRAINT processvar_id_unique IF NOT EXISTS
+FOR (v:ProcessVariable) REQUIRE v.id IS UNIQUE;
+CREATE CONSTRAINT obs_id_unique IF NOT EXISTS
+FOR (o:Observation) REQUIRE o.id IS UNIQUE;
+
+// optional range for the "#" column
+:param start => 0;
+:param end   => 2000000000;
+
+LOAD CSV WITH HEADERS FROM 'file:///robot.csv' AS row
+WITH row
+WHERE row.`#` IS NOT NULL
+  AND toInteger(row.`#`) >= $start AND toInteger(row.`#`) < $end
+
+CALL {
+  WITH row
+
+  // ---- timestamp normalize
+  WITH row, row.datetime AS raw0
+  WHERE raw0 IS NOT NULL AND raw0 <> ''
+  WITH row, replace(replace(raw0,'/','-'),' ','T') AS s0
+  WITH row, s0, split(s0,':') AS parts
+  WITH row,
+       CASE WHEN size(parts) > 3
+            THEN parts[0]+':'+parts[1]+':'+parts[2]+'.'+parts[3] ELSE s0 END AS s1
+  WITH row,
+       CASE WHEN s1 =~ '.*\\.\\d{4,}$'
+            THEN split(s1,'.')[0] + '.' + substring(split(s1,'.')[1],0,3) ELSE s1 END AS iso
+  WITH row, datetime(iso) AS ts
+
+  // ---- one reading per non-time column
+  WITH ts, row, [k IN keys(row) WHERE NOT k IN ['#','datetime']] AS cols
+  UNWIND cols AS k
+  WITH ts, k, row[k] AS raw, trim(k) AS vname
+
+  WITH ts, vname,
+       CASE
+         WHEN raw IS NULL THEN NULL
+         WHEN toLower(raw) IN ['true','false'] THEN toLower(raw)
+         WHEN raw =~ '^-?\\d+$'                 THEN raw
+         WHEN raw =~ '^-?\\d+\\.\\d+$'          THEN raw
+         ELSE raw
+       END AS vtxt
+  WITH ts, vname, vtxt,
+       CASE
+         WHEN vtxt IS NULL                 THEN 'String'
+         WHEN vtxt IN ['true','false']     THEN 'Boolean'
+         WHEN vtxt =~ '^-?\\d+$'           THEN 'Integer'
+         WHEN vtxt =~ '^-?\\d+\\.\\d+$'    THEN 'Float'
+         ELSE 'String'
+       END AS dtype,
+       CASE
+         WHEN vtxt IS NULL OR vtxt IN ['true','false'] THEN NULL
+         WHEN vtxt =~ '^-?\\d+(\\.\\d+)?$' THEN toFloat(vtxt)
+         ELSE NULL
+       END AS vnum,
+       'robot:' + vname AS vid
+
+  WITH ts, vname, vtxt, dtype, vnum, vid,
+       CASE
+         WHEN vname ENDS WITH 'TempC'                       THEN '°C'
+         WHEN vname ENDS WITH 'AltM'                        THEN 'm'
+         WHEN vname CONTAINS 'BMP_Pa'                       THEN 'Pa'
+         WHEN vname CONTAINS 'Accel'                        THEN 'm/s²'
+         WHEN vname CONTAINS 'Gyro'                         THEN 'rad/s'
+         WHEN vname CONTAINS 'Mag'                          THEN 'µT'
+         WHEN vname CONTAINS 'LUX' OR vname CONTAINS 'Lux'  THEN 'lx'
+         ELSE NULL
+       END AS inferredUnit
+
+  MERGE (v:ProcessVariable {id: vid})
+  ON CREATE SET v.name = vname, v.source = 'robot'
+  SET  v.dtype       = coalesce(v.dtype, dtype),
+       v.unit        = coalesce(v.unit, inferredUnit),
+       v.last_value  = vtxt,
+       v.last_num    = vnum,
+       v.last_ts     = ts,
+       v.updated_at  = ts,
+       v.obs_count   = coalesce(v.obs_count,0) + 1,
+       v.out_of_bounds =
+         CASE
+           WHEN vnum IS NULL OR (v.lower IS NULL AND v.upper IS NULL) THEN NULL
+           WHEN v.lower IS NOT NULL AND vnum < toFloat(v.lower) THEN true
+           WHEN v.upper IS NOT NULL AND vnum > toFloat(v.upper) THEN true
+           ELSE false
+         END
+
+  MERGE (o:Observation {id: vid + '|' + toString(ts)})
+    ON CREATE SET o.ts = ts, o.value = vtxt, o.num = vnum, o.source = 'robot'
+  MERGE (v)-[:OBSERVED_AT]->(o)
+} IN TRANSACTIONS OF 1000 ROWS;

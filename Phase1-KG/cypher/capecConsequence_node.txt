@@ -1,0 +1,25 @@
+// Constraint (anonymous form; safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (cc:CAPECConsequence) REQUIRE cc.consequence_id IS UNIQUE;
+
+// Batched load (no USING PERIODIC COMMIT)
+LOAD CSV WITH HEADERS FROM 'file:///capecConsequence_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.consequence_id) AS cid,
+    CASE WHEN row.impact IS NULL OR trim(row.impact) = '' THEN NULL ELSE trim(row.impact) END AS impactVal,
+    coalesce(row.scope, '')  AS scopeRaw,
+    CASE WHEN row.note   IS NULL OR trim(row.note)   = '' THEN NULL ELSE row.note   END AS noteVal
+
+  // keep scope as a list property (no extra nodes)
+  WITH
+    cid, impactVal, noteVal,
+    [s IN split(scopeRaw, '|') WHERE trim(s) <> '' | trim(s)] AS scopes
+
+  MERGE (cc:CAPECConsequence {consequence_id: cid})
+  SET  cc.impact = impactVal,
+       cc.scopes = scopes,
+       cc.note   = noteVal
+} IN TRANSACTIONS OF 1000 ROWS;

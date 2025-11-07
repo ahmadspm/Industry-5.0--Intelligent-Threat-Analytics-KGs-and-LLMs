@@ -1,0 +1,23 @@
+// === Setup (run once) ===
+CREATE INDEX IF NOT EXISTS FOR (p:Product) ON (p.product_id);
+
+// === Load Attackable edges from CSV ===
+// Put the CSV in Neo4j's import directory and adjust the URL below.
+LOAD CSV WITH HEADERS FROM 'file:///flows_directional_attack_metrics_generated.csv' AS row
+WITH row
+WHERE row.src_asset_id IS NOT NULL AND row.dst_asset_id IS NOT NULL AND row.src_asset_id <> '' AND row.dst_asset_id <> ''
+MERGE (src:Product {product_id: row.src_asset_id})
+MERGE (dst:Product {product_id: row.dst_asset_id})
+MERGE (src)-[r:ATTACKABLE]->(dst)
+SET
+  r.controlStrength = CASE WHEN row.controlStrength = '' THEN NULL ELSE toFloat(row.controlStrength) END,
+  r.pExploit        = CASE WHEN row.pExploit = '' THEN NULL ELSE toFloat(row.pExploit) END,
+  // The CSV provides 'attackCost_min'; map it to the relationship property 'attackCost'
+  r.attackCost      = CASE WHEN row.attackCost_min = '' THEN NULL ELSE toFloat(row.attackCost_min) END,
+  r.riskWeight      = CASE WHEN row.riskWeight = '' THEN NULL ELSE toFloat(row.riskWeight) END,
+  r.impactFactor    = CASE WHEN row.impactFactor = '' THEN NULL ELSE toFloat(row.impactFactor) END,
+  // Optional extras (provenance/debug)
+  r.protocol        = row.protocol,
+  r.flow_id         = row.flow_id,
+  r.direction       = row.direction,
+  r.cve_count       = CASE WHEN row.cve_count = '' THEN NULL ELSE toInteger(row.cve_count) END;

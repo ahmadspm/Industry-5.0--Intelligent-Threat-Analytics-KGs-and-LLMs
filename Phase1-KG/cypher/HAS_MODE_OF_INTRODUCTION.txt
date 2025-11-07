@@ -1,0 +1,22 @@
+// Optional constraints (safe to re-run)
+CREATE CONSTRAINT cwe_id_unique IF NOT EXISTS
+FOR (c:CWE) REQUIRE c.cwe_id IS UNIQUE;
+
+CREATE CONSTRAINT moi_id_unique IF NOT EXISTS
+FOR (m:CWEModeOfIntroduction) REQUIRE m.introduction_id IS UNIQUE;
+
+// Create relationships from file placed in the Neo4j import directory
+LOAD CSV WITH HEADERS FROM 'file:///HAS_MODE_OF_INTRODUCTION.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH trim(row.cwe_id) AS cweId, trim(row.id) AS moiId
+  WHERE cweId <> '' AND moiId <> ''
+
+  // Match existing nodes (case-insensitive for CWE id)
+  MATCH (w:CWE) WHERE toLower(w.cwe_id) = toLower(cweId)
+  MATCH (m:CWEModeOfIntroduction {introduction_id: moiId})
+
+  // Relationship name matches the file name
+  MERGE (w)-[:HAS_MODE_OF_INTRODUCTION]->(m)
+} IN TRANSACTIONS OF 1000 ROWS;

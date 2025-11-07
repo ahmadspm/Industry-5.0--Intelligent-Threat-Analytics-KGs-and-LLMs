@@ -1,0 +1,24 @@
+// Constraint (safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (s:Software) REQUIRE s.software_id IS UNIQUE;
+
+// Optional: speed lookups by name+version
+CREATE INDEX software_name_version IF NOT EXISTS
+FOR (s:Software) ON (s.name, s.version);
+
+// Batched load
+LOAD CSV WITH HEADERS FROM 'file:///Software.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id)      AS sid,
+    CASE WHEN row.name    IS NULL OR trim(row.name)    = '' THEN NULL ELSE row.name    END AS nameVal,
+    CASE WHEN row.version IS NULL OR trim(row.version) = '' THEN NULL ELSE row.version END AS versionVal,
+    CASE WHEN row.vendor  IS NULL OR trim(row.vendor)  = '' THEN NULL ELSE row.vendor  END AS vendorVal
+
+  MERGE (s:Software {software_id: sid})
+  SET  s.name    = nameVal,
+       s.version = versionVal,
+       s.vendor  = vendorVal
+} IN TRANSACTIONS OF 1000 ROWS;

@@ -1,0 +1,32 @@
+// Optional constraints (safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (g:Group)    REQUIRE g.group_id    IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (t:Technique) REQUIRE t.technique_id IS UNIQUE;
+
+// Create relationships from file placed in Neo4j's import dir
+LOAD CSV WITH HEADERS FROM 'file:///USE_TECHNIQUE.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH trim(row.source_id) AS groupId, trim(row.target_id) AS techId
+  WHERE groupId <> '' AND techId <> ''
+
+  MATCH (g:Group) WHERE toLower(g.group_id) = toLower(groupId)
+
+  // Try exact technique match first
+  OPTIONAL MATCH (tExact:Technique)
+  WHERE toLower(tExact.technique_id) = toLower(techId)
+
+  // If not found and it's a sub-technique (e.g., T1001.002), try parent (T1001)
+  WITH g, techId, tExact,
+       CASE WHEN tExact IS NULL AND techId CONTAINS '.' THEN split(techId, '.')[0] ELSE NULL END AS parentId
+  OPTIONAL MATCH (tParent:Technique)
+  WHERE tExact IS NULL AND parentId IS NOT NULL AND toLower(tParent.technique_id) = toLower(parentId)
+
+  WITH g, coalesce(tExact, tParent) AS t
+  WHERE t IS NOT NULL
+
+  MERGE (g)-[:USE_TECHNIQUE]->(t)
+} IN TRANSACTIONS OF 1000 ROWS;

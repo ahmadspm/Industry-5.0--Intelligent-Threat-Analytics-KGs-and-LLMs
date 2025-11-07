@@ -1,0 +1,19 @@
+// Ensure lookup constraints (safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (p:Product) REQUIRE p.product_id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (z:Zone)    REQUIRE z.id IS UNIQUE;
+
+// Create links from CSV (place product2zone.csv in Neo4j /import)
+LOAD CSV WITH HEADERS FROM 'file:///LOCATED_IN.csv' AS row
+WITH trim(row.product_id) AS pid,
+     trim(row.Zone)       AS zid
+WHERE pid <> '' AND zid <> ''
+
+CALL {
+  WITH pid, zid
+  MATCH (p:Product {product_id: pid})
+  MATCH (z:Zone    {id:         zid})
+  MERGE (p)-[:LOCATED_IN]->(z)
+} IN TRANSACTIONS OF 20000 ROWS;

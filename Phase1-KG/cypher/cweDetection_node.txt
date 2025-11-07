@@ -1,0 +1,27 @@
+// --- Constraint (safe to re-run)
+CREATE CONSTRAINT cwe_detection_id_unique IF NOT EXISTS
+FOR (d:CWEDetection) REQUIRE d.detection_id IS UNIQUE;
+
+// --- Batched load (place cweDetection_node.csv in Neo4j's import dir)
+LOAD CSV WITH HEADERS FROM 'file:///cweDetection_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  // Normalize fields
+  WITH
+    trim(row.id)          AS detId,
+    trim(row.method)      AS method,
+    row.description       AS description,
+    trim(row.effectiveness) AS effectiveness,
+    row.effectivenessNote AS effectivenessNoteRaw
+  WITH
+    detId, method, description, effectiveness,
+    CASE WHEN effectivenessNoteRaw IS NULL OR trim(effectivenessNoteRaw) = '' THEN NULL ELSE effectivenessNoteRaw END AS effectivenessNote
+
+  // Upsert node
+  MERGE (d:CWEDetection {detection_id: detId})
+  SET  d.method            = method,
+       d.description       = description,
+       d.effectiveness     = effectiveness,
+       d.effectivenessNote = effectivenessNote
+} IN TRANSACTIONS OF 1000 ROWS;

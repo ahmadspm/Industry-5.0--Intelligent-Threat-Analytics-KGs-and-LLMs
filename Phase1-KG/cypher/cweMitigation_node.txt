@@ -1,0 +1,25 @@
+// --- Constraint (safe to re-run)
+CREATE CONSTRAINT cwe_mitigation_id_unique IF NOT EXISTS
+FOR (m:CWEMitigation) REQUIRE m.mitigation_id IS UNIQUE;
+
+// --- Batched load (put cweMitigation_node.csv in Neo4j's import dir)
+LOAD CSV WITH HEADERS FROM 'file:///cweMitigation_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  // Normalize fields (support Effectiveness/effectiveness header)
+  WITH
+    trim(row.id) AS mid,
+    trim(coalesce(row.name, '')) AS name,
+    coalesce(row.Effectiveness, row.effectiveness) AS effRaw,
+    row.description AS descRaw
+  WITH
+    mid, name,
+    CASE WHEN effRaw IS NULL OR trim(effRaw) = '' THEN NULL ELSE trim(effRaw) END AS effectiveness,
+    CASE WHEN descRaw IS NULL OR trim(descRaw) = '' THEN NULL ELSE descRaw END AS description
+
+  MERGE (m:CWEMitigation {mitigation_id: mid})
+  SET  m.name          = name,
+       m.effectiveness = effectiveness,
+       m.description   = description
+} IN TRANSACTIONS OF 1000 ROWS;

@@ -1,0 +1,20 @@
+// Optional constraints (anonymous form)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (w:CWE) REQUIRE w.cwe_id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (c:CAPEC) REQUIRE c.capec_id IS UNIQUE;
+
+// Create relationships from file placed in neo4j's import dir
+LOAD CSV WITH HEADERS FROM 'file:///HAS_CAPEC.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH trim(row.cwe_id) AS cweId, trim(row.id) AS capecId
+  WHERE cweId <> '' AND capecId <> ''
+
+  MATCH (w:CWE)  WHERE toLower(w.cwe_id)  = toLower(cweId)
+  MATCH (c:CAPEC) WHERE toLower(c.capec_id) = toLower(capecId)
+
+  MERGE (w)-[:HAS_CAPEC]->(c)
+} IN TRANSACTIONS OF 1000 ROWS;

@@ -1,0 +1,22 @@
+// Optional constraints (safe to re-run)
+CREATE CONSTRAINT cwe_id_unique IF NOT EXISTS
+FOR (c:CWE) REQUIRE c.cwe_id IS UNIQUE;
+
+CREATE CONSTRAINT cwe_consequence_id_unique IF NOT EXISTS
+FOR (cc:CWEConsequence) REQUIRE cc.consequence_id IS UNIQUE;
+
+// Create relationships from file placed in Neo4j's import dir
+LOAD CSV WITH HEADERS FROM 'file:///HAS_CONSEQUENCE.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH trim(row.cwe_id) AS cweId, trim(row.id) AS consId
+  WHERE cweId <> '' AND consId <> ''
+
+  // Match existing nodes
+  MATCH (w:CWE) WHERE toLower(w.cwe_id) = toLower(cweId)
+  MATCH (cc:CWEConsequence {consequence_id: consId})
+
+  // Link using relationship name matching the file name
+  MERGE (w)-[:HAS_CONSEQUENCE]->(cc)
+} IN TRANSACTIONS OF 1000 ROWS;

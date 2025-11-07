@@ -1,0 +1,231 @@
+///////////////////////////////////////////////////////////////////////////
+// CONSTRAINTS (safe to re-run)
+///////////////////////////////////////////////////////////////////////////
+
+// component: no single id column; key by (machine_id, name)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (c:Component) REQUIRE (c.machine_id, c.name) IS NODE KEY;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (m:Machine) REQUIRE m.id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (h:Host) REQUIRE h.id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (a:Alert) REQUIRE a.id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (e:Event) REQUIRE e.id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (cr:Credential) REQUIRE cr.id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (ac:Account) REQUIRE ac.id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (s:Sensor) REQUIRE s.id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (pv:ProcessVariable) REQUIRE pv.id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (act:Actuator) REQUIRE act.id IS UNIQUE;
+
+///////////////////////////////////////////////////////////////////////////
+// LOADERS (batched; no USING PERIODIC COMMIT)
+///////////////////////////////////////////////////////////////////////////
+
+// -------------------- Component --------------------
+LOAD CSV WITH HEADERS FROM 'file:///component_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.machine_id) AS machine_id,
+    trim(row.name)       AS name,
+    row.kind             AS kindRaw,
+    row.safety_level     AS safetyRaw
+  WHERE machine_id <> '' AND name <> ''
+
+  MERGE (c:Component {machine_id: machine_id, name: name})
+  SET c.kind         = CASE WHEN kindRaw   IS NULL OR trim(kindRaw)   = '' THEN NULL ELSE kindRaw   END,
+      c.safety_level = CASE WHEN safetyRaw IS NULL OR trim(safetyRaw) = '' THEN NULL ELSE safetyRaw END
+} IN TRANSACTIONS OF 1000 ROWS;
+
+// -------------------- Machine --------------------
+LOAD CSV WITH HEADERS FROM 'file:///machine_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id)        AS id,
+    row.name            AS name,
+    row.family          AS family,
+    row.oem             AS oem,
+    row.updated_at      AS updated_at
+  WHERE id <> ''
+
+  MERGE (m:Machine {id: id})
+  SET m.name       = CASE WHEN name       IS NULL OR trim(name)       = '' THEN NULL ELSE name       END,
+      m.family     = CASE WHEN family     IS NULL OR trim(family)     = '' THEN NULL ELSE family     END,
+      m.oem        = CASE WHEN oem        IS NULL OR trim(oem)        = '' THEN NULL ELSE oem        END,
+      m.updated_at = CASE WHEN updated_at IS NULL OR trim(updated_at) = '' THEN NULL ELSE updated_at END
+} IN TRANSACTIONS OF 1000 ROWS;
+
+// -------------------- Host --------------------
+LOAD CSV WITH HEADERS FROM 'file:///host_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id) AS id,
+    row.ip       AS ip,
+    row.role     AS role,
+    row.os       AS os
+  WHERE id <> ''
+
+  MERGE (h:Host {id: id})
+  SET h.ip   = CASE WHEN ip   IS NULL OR trim(ip)   = '' THEN NULL ELSE ip   END,
+      h.role = CASE WHEN role IS NULL OR trim(role) = '' THEN NULL ELSE role END,
+      h.os   = CASE WHEN os   IS NULL OR trim(os)   = '' THEN NULL ELSE os   END
+} IN TRANSACTIONS OF 1000 ROWS;
+
+// -------------------- Alert --------------------
+LOAD CSV WITH HEADERS FROM 'file:///alert_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id) AS id,
+    row.rule     AS rule,
+    row.ts       AS ts,
+    row.severity AS severity,
+    row.confidence AS confidence
+  WHERE id <> ''
+
+  MERGE (a:Alert {id: id})
+  SET a.rule       = CASE WHEN rule       IS NULL OR trim(rule)       = '' THEN NULL ELSE rule       END,
+      a.ts         = CASE WHEN ts         IS NULL OR trim(ts)         = '' THEN NULL ELSE ts         END,
+      a.severity   = CASE WHEN severity   IS NULL OR trim(severity)   = '' THEN NULL ELSE severity   END,
+      a.confidence = CASE WHEN confidence IS NULL OR trim(confidence) = '' THEN NULL ELSE confidence END
+} IN TRANSACTIONS OF 1000 ROWS;
+
+// -------------------- Event --------------------
+LOAD CSV WITH HEADERS FROM 'file:///event_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id) AS id,
+    row.kind     AS kind,
+    row.ts       AS ts,
+    row.severity AS severity,
+    row.src      AS src,
+    row.confidence AS confidence
+  WHERE id <> ''
+
+  MERGE (e:Event {id: id})
+  SET e.kind       = CASE WHEN kind       IS NULL OR trim(kind)       = '' THEN NULL ELSE kind       END,
+      e.ts         = CASE WHEN ts         IS NULL OR trim(ts)         = '' THEN NULL ELSE ts         END,
+      e.severity   = CASE WHEN severity   IS NULL OR trim(severity)   = '' THEN NULL ELSE severity   END,
+      e.src        = CASE WHEN src        IS NULL OR trim(src)        = '' THEN NULL ELSE src        END,
+      e.confidence = CASE WHEN confidence IS NULL OR trim(confidence) = '' THEN NULL ELSE confidence END
+} IN TRANSACTIONS OF 1000 ROWS;
+
+// -------------------- Credential --------------------
+LOAD CSV WITH HEADERS FROM 'file:///credential_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id) AS id,
+    row.kind     AS kind,
+    row.state    AS state
+  WHERE id <> ''
+
+  MERGE (cr:Credential {id: id})
+  SET cr.kind  = CASE WHEN kind  IS NULL OR trim(kind)  = '' THEN NULL ELSE kind  END,
+      cr.state = CASE WHEN state IS NULL OR trim(state) = '' THEN NULL ELSE state END
+} IN TRANSACTIONS OF 1000 ROWS;
+
+// -------------------- Account --------------------
+LOAD CSV WITH HEADERS FROM 'file:///account_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id) AS id,
+    row.name     AS name,
+    row.role     AS role,
+    row.privilege AS privilege
+  WHERE id <> ''
+
+  MERGE (ac:Account {id: id})
+  SET ac.name      = CASE WHEN name      IS NULL OR trim(name)      = '' THEN NULL ELSE name      END,
+      ac.role      = CASE WHEN role      IS NULL OR trim(role)      = '' THEN NULL ELSE role      END,
+      ac.privilege = CASE WHEN privilege IS NULL OR trim(privilege) = '' THEN NULL ELSE privilege END
+} IN TRANSACTIONS OF 1000 ROWS;
+
+// -------------------- Sensor --------------------
+LOAD CSV WITH HEADERS FROM 'file:///sensor_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id) AS id,
+    row.name         AS name,
+    row.tag          AS tag,
+    row.unit         AS unit,
+    row.sampling_hz  AS sampling_hz,
+    row.updated_at   AS updated_at
+  WHERE id <> ''
+
+  MERGE (s:Sensor {id: id})
+  SET s.name        = CASE WHEN name        IS NULL OR trim(name)        = '' THEN NULL ELSE name        END,
+      s.tag         = CASE WHEN tag         IS NULL OR trim(tag)         = '' THEN NULL ELSE tag         END,
+      s.unit        = CASE WHEN unit        IS NULL OR trim(unit)        = '' THEN NULL ELSE unit        END,
+      s.sampling_hz = CASE WHEN sampling_hz IS NULL OR trim(sampling_hz) = '' THEN NULL ELSE sampling_hz END,
+      s.updated_at  = CASE WHEN updated_at  IS NULL OR trim(updated_at)  = '' THEN NULL ELSE updated_at  END
+} IN TRANSACTIONS OF 1000 ROWS;
+
+// -------------------- ProcessVariable --------------------
+LOAD CSV WITH HEADERS FROM 'file:///processVariable_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id) AS id,
+    row.name       AS name,
+    row.unit       AS unit,
+    row.lower      AS lowerRaw,
+    row.upper      AS upperRaw,
+    row.updated_at AS updated_at
+  WHERE id <> ''
+
+  MERGE (pv:ProcessVariable {id: id})
+  SET pv.name       = CASE WHEN name       IS NULL OR trim(name)       = '' THEN NULL ELSE name       END,
+      pv.unit       = CASE WHEN unit       IS NULL OR trim(unit)       = '' THEN NULL ELSE unit       END,
+      pv.lower      = CASE WHEN lowerRaw   IS NULL OR trim(lowerRaw)   = '' THEN NULL ELSE toFloat(lowerRaw) END,
+      pv.upper      = CASE WHEN upperRaw   IS NULL OR trim(upperRaw)   = '' THEN NULL ELSE toFloat(upperRaw) END,
+      pv.updated_at = CASE WHEN updated_at IS NULL OR trim(updated_at) = '' THEN NULL ELSE updated_at END
+} IN TRANSACTIONS OF 1000 ROWS;
+
+// -------------------- Actuator --------------------
+LOAD CSV WITH HEADERS FROM 'file:///actuator_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id) AS id,
+    row.name       AS name,
+    row.tag        AS tag,
+    row.updated_at AS updated_at
+  WHERE id <> ''
+
+  MERGE (act:Actuator {id: id})
+  SET act.name       = CASE WHEN name       IS NULL OR trim(name)       = '' THEN NULL ELSE name       END,
+      act.tag        = CASE WHEN tag        IS NULL OR trim(tag)        = '' THEN NULL ELSE tag        END,
+      act.updated_at = CASE WHEN updated_at IS NULL OR trim(updated_at) = '' THEN NULL ELSE updated_at END
+} IN TRANSACTIONS OF 1000 ROWS;

@@ -1,0 +1,104 @@
+// ---------- One-time constraints ----------
+CREATE CONSTRAINT processvar_id_unique IF NOT EXISTS
+FOR (v:ProcessVariable) REQUIRE v.id IS UNIQUE;
+
+CREATE CONSTRAINT product_pid_unique IF NOT EXISTS
+FOR (p:Product) REQUIRE p.product_id IS UNIQUE;
+
+// ---------- Loader: OPC UA logs -> ProcessVariable ----------
+// Expected CSV headers (adjust if needed):
+//   date,nodeid,value,dtype[,unit][,product_id]
+// Supports timestamps like:
+//   "2020/07/20 19:49:41:718"        (colon before millis)
+//   "2020-07-20 08:55:23.968000"     (space + microseconds)
+
+LOAD CSV WITH HEADERS FROM 'file:///opcua.csv' AS row
+
+// (1) Pull raw fields and define raw0 FIRST
+WITH
+  row,
+  coalesce(row.date, row.datetime)              AS raw0,
+  trim(coalesce(row.nodeid, row.id))            AS vid,
+  trim(coalesce(row.dtype, ''))                 AS rawDtype,
+  trim(coalesce(row.unit,  ''))                 AS rawUnit,
+  trim(coalesce(row.product_id, ''))            AS pid,
+  CASE
+    WHEN toLower(row.value) IN ['true','false'] THEN toLower(row.value)
+    WHEN row.value =~ '^-?\\d+$'                 THEN row.value
+    WHEN row.value =~ '^-?\\d+\\.\\d+$'          THEN row.value
+    ELSE row.value
+  END                                          AS vtxt
+
+// Skip rows with missing timestamp
+WITH row, raw0, vid, rawDtype, rawUnit, pid, vtxt
+WHERE raw0 IS NOT NULL AND raw0 <> ""
+
+// (2) Normalize timestamp -> ISO-8601 with milliseconds
+WITH
+  row, vid, rawDtype, rawUnit, pid, vtxt,
+  replace(replace(raw0,'/','-'),' ','T')       AS s0
+
+// If the time has 4 colon parts (HH:MM:SS:frac), convert last ":" to "."
+WITH row, vid, rawDtype, rawUnit, pid, vtxt, s0,
+     split(s0,':') AS parts
+WITH row, vid, rawDtype, rawUnit, pid, vtxt, s0, parts,
+     CASE
+       WHEN size(parts) > 3
+         THEN apoc.text.join(parts[0..size(parts)-1], ':') + '.' + parts[size(parts)-1]
+       ELSE s0
+     END AS s1
+
+// If fractional seconds > 3 digits, trim to 3 (milliseconds)
+WITH row, vid, rawDtype, rawUnit, pid, vtxt,
+     CASE
+       WHEN s1 =~ '.*\\.\\d{4,}$'
+         THEN split(s1,'.')[0] + '.' + substring(split(s1,'.')[1], 0, 3)
+       ELSE s1
+     END AS iso
+WITH row, vid, rawDtype, rawUnit, pid, vtxt, datetime(iso) AS ts
+
+// (3) Infer dtype and numeric value
+WITH
+  ts, vid, rawDtype, rawUnit, pid, vtxt,
+  CASE
+    WHEN vtxt IN ['true','false'] THEN 'Boolean'
+    WHEN vtxt =~ '^-?\\d+$'       THEN 'Integer'
+    WHEN vtxt =~ '^-?\\d+\\.\\d+$' THEN 'Float'
+    ELSE 'String'
+  END                                          AS inferredDtype,
+  CASE
+    WHEN vtxt IN ['true','false'] THEN NULL
+    WHEN vtxt =~ '^-?\\d+(\\.\\d+)?$' THEN toFloat(vtxt)
+    ELSE NULL
+  END                                          AS vnum
+
+// (4) Upsert ProcessVariable and optional Product link
+MERGE (v:ProcessVariable {id: vid})
+ON CREATE SET v.name   = coalesce(v.name, vid),
+              v.source = coalesce(v.source, 'opcua')
+SET  v.dtype       = coalesce(NULLIF(rawDtype,''), v.dtype, inferredDtype),
+     v.unit        = coalesce(v.unit, NULLIF(rawUnit,'')),      // keep curated unit if already set
+     v.last_value  = vtxt,
+     v.last_num    = vnum,
+     v.last_ts     = ts,
+     v.updated_at  = ts,
+     v.obs_count   = coalesce(v.obs_count, 0) + 1,
+     v.out_of_bounds =
+       CASE
+         WHEN vnum IS NULL OR (v.lower IS NULL AND v.upper IS NULL) THEN NULL
+         WHEN v.lower IS NOT NULL AND vnum < toFloat(v.lower) THEN true
+         WHEN v.upper IS NOT NULL AND vnum > toFloat(v.upper) THEN true
+         ELSE false
+       END
+
+FOREACH (_ IN CASE WHEN pid <> '' THEN [1] ELSE [] END |
+  MERGE (p:Product {product_id: pid})
+  MERGE (p)-[:MEASURES]->(v)
+);
+
+// ---------- Optional quick check ----------
+MATCH (pv:ProcessVariable)
+WHERE pv.source = 'opcua'
+RETURN pv.id AS id, pv.dtype AS dtype, pv.last_value AS last_value, pv.last_ts AS last_ts, pv.out_of_bounds AS oob
+ORDER BY pv.last_ts DESC
+LIMIT 25;

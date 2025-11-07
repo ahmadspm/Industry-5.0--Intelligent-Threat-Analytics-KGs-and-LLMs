@@ -1,0 +1,18 @@
+// Constraint (anonymous; safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (t:Tactic) REQUIRE t.tactic_id IS UNIQUE;
+
+// Batched load (place tactic_node.csv in Neo4j's import dir)
+LOAD CSV WITH HEADERS FROM 'file:///tactic_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id)  AS tacticId,
+    CASE WHEN row.name IS NULL OR trim(row.name) = '' THEN NULL ELSE row.name END AS nameVal,
+    CASE WHEN row.description IS NULL OR trim(row.description) = '' THEN NULL ELSE row.description END AS descVal
+
+  MERGE (t:Tactic {tactic_id: tacticId})
+  SET  t.name        = nameVal,
+       t.description = descVal
+} IN TRANSACTIONS OF 1000 ROWS;

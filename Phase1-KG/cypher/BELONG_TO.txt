@@ -1,0 +1,24 @@
+// Constraints (safe to re-run; anonymous form)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (t:Technique) REQUIRE t.technique_id IS UNIQUE;
+
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (ta:Tactic)   REQUIRE ta.tactic_id   IS UNIQUE;
+
+// Batched relationship load
+LOAD CSV WITH HEADERS FROM 'file:///BELONG_TO.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.technique_id) AS techId,
+    trim(row.tactic_id)    AS tactId,
+    toLower(trim(coalesce(row.domain,''))) AS domainVal
+  WHERE techId <> '' AND tactId <> ''
+
+  MATCH (tech:Technique) WHERE toLower(tech.technique_id) = toLower(techId)
+  MATCH (tact:Tactic)    WHERE toLower(tact.tactic_id)    = toLower(tactId)
+
+  MERGE (tech)-[r:BELONG_TO]->(tact)
+  SET r.domain = CASE WHEN domainVal = '' THEN NULL ELSE domainVal END
+} IN TRANSACTIONS OF 1000 ROWS;

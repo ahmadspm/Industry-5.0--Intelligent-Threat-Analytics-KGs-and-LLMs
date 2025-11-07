@@ -1,0 +1,15 @@
+// Constraint (anonymous; safe to re-run)
+CREATE CONSTRAINT IF NOT EXISTS
+FOR (m:Mitigation) REQUIRE m.mitigation_id IS UNIQUE;
+
+// Batched load (place mitigation_node.csv in the Neo4j import dir)
+LOAD CSV WITH HEADERS FROM 'file:///mitigation_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH
+    trim(row.id) AS mitId,
+    CASE WHEN row.name IS NULL OR trim(row.name) = '' THEN NULL ELSE row.name END AS nameVal
+  MERGE (m:Mitigation {mitigation_id: mitId})
+  SET  m.name = nameVal
+} IN TRANSACTIONS OF 1000 ROWS;

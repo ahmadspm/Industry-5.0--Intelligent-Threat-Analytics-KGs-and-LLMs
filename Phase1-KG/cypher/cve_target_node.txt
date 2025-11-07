@@ -1,0 +1,58 @@
+// Constraints
+CREATE CONSTRAINT cve_id_unique IF NOT EXISTS
+FOR (c:CVE) REQUIRE c.cve_id IS UNIQUE;
+CREATE CONSTRAINT ref_url_unique IF NOT EXISTS
+FOR (r:Reference) REQUIRE r.url IS UNIQUE;
+CREATE CONSTRAINT tgt_name_unique IF NOT EXISTS
+FOR (t:Target) REQUIRE t.name IS UNIQUE;
+
+// Batched load
+LOAD CSV WITH HEADERS FROM 'file:///cve_node.csv' AS row
+WITH row
+CALL {
+  WITH row
+  WITH row,
+       CASE WHEN row.baseScore IS NULL OR trim(row.baseScore) = '' THEN NULL ELSE toFloat(row.baseScore) END AS baseScoreNum
+  WITH row, baseScoreNum,
+       CASE WHEN row.exploitabilityScore IS NULL OR trim(row.exploitabilityScore) = '' THEN NULL ELSE toFloat(row.exploitabilityScore) END AS exploitabilityNum
+  WITH row, baseScoreNum, exploitabilityNum,
+       CASE WHEN row.impactScore IS NULL OR trim(row.impactScore) = '' THEN NULL ELSE toFloat(row.impactScore) END AS impactNum
+  WITH row, baseScoreNum, exploitabilityNum, impactNum,
+       CASE WHEN row.epss IS NULL OR trim(row.epss) = '' THEN NULL ELSE toFloat(row.epss) END AS epssNum
+  WITH row, baseScoreNum, exploitabilityNum, impactNum, epssNum,
+       CASE
+         WHEN toLower(coalesce(row.hasKEV,'')) IN ['true','1','yes','y'] THEN true
+         WHEN toLower(coalesce(row.hasKEV,'')) IN ['false','0','no','n'] THEN false
+         ELSE NULL
+       END AS hasKEVBool
+  WITH row, baseScoreNum, exploitabilityNum, impactNum, epssNum, hasKEVBool,
+       CASE WHEN row.baseSeverity IS NULL OR trim(row.baseSeverity) = '' THEN NULL ELSE row.baseSeverity END AS baseSeverityNorm
+  WITH row, baseScoreNum, exploitabilityNum, impactNum, epssNum, hasKEVBool, baseSeverityNorm,
+       [u IN split(coalesce(row.references,''), '|') WHERE trim(u) <> '' | trim(u)] AS refs
+  WITH row, baseScoreNum, exploitabilityNum, impactNum, epssNum, hasKEVBool, baseSeverityNorm, refs,
+       replace(replace(replace(coalesce(row.target,''),'[',''),']',''),"'",'') AS tgtClean
+  WITH row, baseScoreNum, exploitabilityNum, impactNum, epssNum, hasKEVBool, baseSeverityNorm, refs,
+       [t IN split(tgtClean, ',') WHERE trim(t) <> '' | toLower(trim(t))] AS targets
+
+  MERGE (c:CVE {cve_id: row.cve_id})
+  SET c.description         = row.description,
+      c.cvssVector          = row.cvssVector,
+      c.baseScore           = baseScoreNum,
+      c.baseSeverity        = baseSeverityNorm,
+      c.attackVector        = row.attackVector,
+      c.attackComplexity    = row.attackComplexity,
+      c.exploitabilityScore = exploitabilityNum,
+      c.impactScore         = impactNum,
+      c.epss                = epssNum,
+      c.hasKEV              = hasKEVBool
+
+  FOREACH (url IN refs |
+    MERGE (r:Reference {url: url})
+    MERGE (c)-[:HAS_REFERENCE]->(r)
+  )
+
+  FOREACH (name IN targets |
+    MERGE (t:Target {name: name})
+    MERGE (c)-[:TARGETS]->(t)
+  )
+} IN TRANSACTIONS OF 1000 ROWS;
