@@ -1,0 +1,18 @@
+MATCH (p:Product)
+RETURN
+  coalesce(p.name, p.product_id)              AS `Product/Asset`,
+  coalesce(p.domain,'(none)')                 AS `Zone`,
+  round(p.risk_raw_q4 * 10) / 10.0            AS `Risk (Raw)`,
+  round(p.risk_enriched_q4 * 10) / 10.0       AS `Risk (Enriched)`,
+  round(p.risk_after_controls_q4 * 10) / 10.0 AS `Risk (After Controls)`,
+  round((p.risk_after_controls_q4 - p.risk_enriched_q4) * 10) / 10.0 AS DeltaRisk,
+  // ratio = After / Enriched
+  round(
+    100.0 * CASE
+              WHEN coalesce(p.risk_enriched_q4,0) > 0
+              THEN p.risk_after_controls_q4 / p.risk_enriched_q4
+              ELSE 0.0
+            END
+  ) AS `% Reduction`
+ORDER BY `Risk (After Controls)` DESC
+LIMIT 50;
