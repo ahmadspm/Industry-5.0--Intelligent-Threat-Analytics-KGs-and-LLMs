@@ -1,5 +1,5 @@
 # I5_Threat_Analysis_System
-This is the repository for A Resilience System that empower Knowledge Graph and LLM to provide threat analysis in industry 5.
+This is the repository for A Resilience System that empower Knowledge Grgaph and LLM to provide threat analysis in industry 5.
 
 ## Dataset 
 1. MITRE ATT&CK: [Link](https://attack.mitre.org/resources/attack-data-and-tools/#excel-attack). Download all the XLSX files from both ICS and Enterprise.
