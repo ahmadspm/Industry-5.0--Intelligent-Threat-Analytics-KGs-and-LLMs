@@ -1,0 +1,7 @@
+LOAD CSV WITH HEADERS FROM 'file:///machine_node.csv' AS row
+
+MERGE (m:Machine {id: row.id})
+SET m.name = row.name,
+    m.family = row.family,
+    m.oem = row.oem,
+    m.updated_at = row.updated_at;

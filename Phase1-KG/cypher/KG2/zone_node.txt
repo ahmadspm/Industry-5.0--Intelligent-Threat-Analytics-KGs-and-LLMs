@@ -1,0 +1,9 @@
+LOAD CSV WITH HEADERS FROM 'file:///zone_node.csv' AS row
+
+CREATE (:Zone {
+    id: row.id,
+    name: row.name,
+    code: row.code,
+    subnet: row.subnet,
+    purpose: row.purpose
+});

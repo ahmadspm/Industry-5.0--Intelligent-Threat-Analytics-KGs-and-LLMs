@@ -1,0 +1,9 @@
+LOAD CSV WITH HEADERS FROM 'file:///attack_node.csv' AS row
+
+CREATE (:Attack {
+    id: row.attack_id,
+    step: row.attackStep,
+    phase: row.attackStepPhase,
+    description: row.attackStepDescription,
+    technique: row.attackStepTechnique
+});

@@ -1,0 +1,5 @@
+LOAD CSV WITH HEADERS FROM 'file:///IS_RELATED_TO.csv' AS row
+
+MERGE (a:I5Asset {id: row.asset_name})
+MERGE (m:MITREAsset {id: row.mitre_asset_id})
+MERGE (a)-[:IS_RELATED_TO]->(m);

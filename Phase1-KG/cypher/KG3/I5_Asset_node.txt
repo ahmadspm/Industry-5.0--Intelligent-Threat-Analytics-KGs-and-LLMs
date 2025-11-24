@@ -1,0 +1,6 @@
+LOAD CSV WITH HEADERS FROM 'file:///i5_asset_node.csv' AS row
+
+CREATE (:I5Asset {
+    id: row.id,
+    name: row.name
+});

@@ -4,6 +4,50 @@
 CREATE CONSTRAINT IF NOT EXISTS
 FOR (m:Malware) REQUIRE m.malware_id IS UNIQUE;
 
+CREATE CONSTRAINT mitre_asset_id_unique IF NOT EXISTS
+FOR (ma:Asset)
+REQUIRE ma.asset_id IS UNIQUE;
+
+
+CREATE CONSTRAINT machine_id_unique IF NOT EXISTS
+FOR (m:Machine)
+REQUIRE m.id IS UNIQUE;
+
+CREATE CONSTRAINT attack_id_unique IF NOT EXISTS
+FOR (a:Attack)
+REQUIRE a.id IS UNIQUE;
+
+CREATE CONSTRAINT detailact_id_unique IF NOT EXISTS
+FOR (d:DetailAct)
+REQUIRE d.id IS UNIQUE;
+
+CREATE CONSTRAINT entity_id_unique IF NOT EXISTS
+FOR (e:Entity)
+REQUIRE e.id IS UNIQUE;
+
+
+CREATE CONSTRAINT process_var_id_unique IF NOT EXISTS
+FOR (pv:ProcessVariable)
+REQUIRE pv.id IS UNIQUE;
+
+CREATE CONSTRAINT account_id_unique IF NOT EXISTS
+FOR (a:Account)
+REQUIRE a.id IS UNIQUE;
+
+CREATE CONSTRAINT host_id_unique IF NOT EXISTS
+FOR (h:Host)
+REQUIRE h.id IS UNIQUE;
+
+CREATE CONSTRAINT zone_id_unique IF NOT EXISTS
+FOR (z:Zone)
+REQUIRE z.id IS UNIQUE;
+
+CREATE CONSTRAINT i5asset_id_unique IF NOT EXISTS
+FOR (a:I5Asset)
+REQUIRE a.id IS UNIQUE;
+
+
+
 CREATE CONSTRAINT IF NOT EXISTS
 FOR (m:Mitigation) REQUIRE m.mitigation_id IS UNIQUE;
 

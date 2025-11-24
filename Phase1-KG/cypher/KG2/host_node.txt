@@ -1,0 +1,8 @@
+LOAD CSV WITH HEADERS FROM 'file:///host_node.csv' AS row
+
+CREATE (:Host {
+    id: row.id,
+    ip: row.ip,
+    role: row.role,
+    os: row.os
+});

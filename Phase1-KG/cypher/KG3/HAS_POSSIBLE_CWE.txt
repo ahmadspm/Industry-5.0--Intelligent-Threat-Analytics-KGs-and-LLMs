@@ -1,0 +1,5 @@
+LOAD CSV WITH HEADERS FROM 'file:///HAS_POSSIBLE_CWE.csv' AS row
+
+MATCH (c:CVE {cve_id: row.id})
+MERGE (w:CWE {cwe_id: row.cwe_id})
+MERGE (c)-[:HAS_POSSIBLE_CWE]->(w);

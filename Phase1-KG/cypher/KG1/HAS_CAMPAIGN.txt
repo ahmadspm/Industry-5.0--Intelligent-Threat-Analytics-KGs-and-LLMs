@@ -1,0 +1,11 @@
+LOAD CSV WITH HEADERS FROM 'file:///campaign.csv' AS row
+
+// Create or merge Campaign
+MERGE (c:Campaign {id: row.`source ID`})
+SET c.name = row.`source name`
+
+// Create or merge Group
+MERGE (g:Group {id: row.`target ID`})
+
+// Create relationship
+MERGE (g)-[:HAS_CAMPAIGN]->(c);

@@ -1,0 +1,10 @@
+LOAD CSV WITH HEADERS FROM 'file:///processVariable_node.csv' AS row
+
+CREATE (:ProcessVariable {
+    id: row.id,
+    name: row.name,
+    unit: row.unit,
+    lower: toFloat(row.lower),
+    upper: toFloat(row.upper),
+    updated_at: row.updated_at
+});

@@ -1,0 +1,6 @@
+LOAD CSV WITH HEADERS FROM 'file:///HOST_ASSET.csv' AS row
+
+MATCH (p:Product {id: row.id})
+MATCH (h:Host {id: row.ip})
+
+MERGE (p)-[:HOSTED_AT]->(h);

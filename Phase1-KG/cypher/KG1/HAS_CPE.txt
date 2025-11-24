@@ -1,0 +1,5 @@
+LOAD CSV WITH HEADERS FROM 'file:///HAS_CPE.csv' AS row
+
+MATCH (p:Product {id: row.product_id})
+MERGE (c:CPE {cpe_id: row.id})
+MERGE (p)-[:HAS_CPE]->(c);

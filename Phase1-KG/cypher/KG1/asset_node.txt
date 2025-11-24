@@ -1,0 +1,6 @@
+LOAD CSV WITH HEADERS FROM 'file:///asset_node.csv' AS row
+
+CREATE (:Asset {
+    aset_id: row.id,
+    name: row.name
+});

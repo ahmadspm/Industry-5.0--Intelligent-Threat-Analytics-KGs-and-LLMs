@@ -1,0 +1,5 @@
+LOAD CSV WITH HEADERS FROM 'file:///HAS_ENTITY.csv' AS row
+
+MATCH (c:CVE {cve_id: row.`:START_ID`})
+MERGE (e:Entity {id: row.`:END_ID`})
+MERGE (c)-[:HAS_ENTITY]->(e);

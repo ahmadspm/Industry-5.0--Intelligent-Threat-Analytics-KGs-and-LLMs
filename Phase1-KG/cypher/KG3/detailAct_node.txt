@@ -1,0 +1,6 @@
+LOAD CSV WITH HEADERS FROM 'file:///detailAct_node.csv' AS row
+
+MERGE (d:DetailAct {id: row.detailact_id})
+SET d.name = row.name,
+    d.description = row.description,
+    d.phase = row.phase;

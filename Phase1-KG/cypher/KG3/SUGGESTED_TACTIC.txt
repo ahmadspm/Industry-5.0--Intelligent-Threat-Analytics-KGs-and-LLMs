@@ -1,0 +1,5 @@
+LOAD CSV WITH HEADERS FROM 'file:///SUGGESTED_TACTIC.csv' AS row
+
+MATCH (c:CVE {id: row.cve_id})
+MERGE (t:Tactic {id: row.predicted_labels})
+MERGE (c)-[:SUGGESTED_TACTIC]->(t);

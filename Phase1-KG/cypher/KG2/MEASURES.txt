@@ -1,0 +1,8 @@
+LOAD CSV WITH HEADERS FROM 'file:///MEASURES.csv' AS row
+
+MATCH (s:Sensor {id: row.sensor_id})
+MATCH (pv:ProcessVariable {id: row.processvariable_id})
+
+MERGE (s)-[r:MEASURES]->(pv)
+SET r.unit = row.unit,
+    r.sampling_hz = toFloat(row.sampling_hz);

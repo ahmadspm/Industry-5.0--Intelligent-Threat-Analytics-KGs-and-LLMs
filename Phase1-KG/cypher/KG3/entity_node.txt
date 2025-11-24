@@ -1,0 +1,7 @@
+LOAD CSV WITH HEADERS FROM 'file:///Entity_node.csv' AS row
+
+CREATE (:Entity {
+    id: row.ID,
+    name: row.name,
+    group: row.entity_group
+});

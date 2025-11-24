@@ -1,0 +1,5 @@
+LOAD CSV WITH HEADERS FROM 'file:///ATTACKS.csv' AS row
+
+MERGE (t:Technique {id: row.technique_id})
+MATCH (a:MITREAsset {id: row.asset_id})
+MERGE (t)-[:ATTACKS]->(a);

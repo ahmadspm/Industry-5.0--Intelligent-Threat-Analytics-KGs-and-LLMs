@@ -1,0 +1,6 @@
+LOAD CSV WITH HEADERS FROM 'file:///account_node.csv' AS row
+
+MERGE (a:Account {id: row.id})
+SET a.name = row.name,
+    a.role = row.role,
+    a.privilege = row.privilege;
