@@ -1,5 +1,26 @@
 # I5_Threat_Analysis_System
-This is the repository for A Resilience System that empower Knowledge Grgaph and LLM to provide threat analysis in industry 5.
+This repository hosts the I5 Threat Analysis System, a resilience framework that integrates Knowledge Graphs and Large Language Models (LLMs) to support threat analysis for Industry 5.0 environments (BRIDG-ICS).
+
+<p align="center"> <img src="image/KG_complete.png" width="450"> </p>
+
+## BRIDG-ICS Knowledge Graph Structure
+The BRIDG-ICS knowledge graph is constructed by combining three interconnected sub-graphs:
+
+1. Vulnerability and Attack Taxonomies
+This sub-graph connects standardized cybersecurity resources including CVE, CWE, CAPEC, and the MITRE ATT&CK framework.
+
+<p align="center"> <img src="image/kg1.png" width="250"> </p>
+
+2. ICS + Industry 5.0 Testbed Integration
+The second sub-graph merges ICSA content with a local Industry 5.0 testbed, creating a more detailed representation of industrial assets and processes.
+
+<p align="center"> <img src="image/kg2.png" width="250"> </p>
+
+3. Enhanced Semantic Links
+Finally, additional semantic relationships are added to enrich node connectivity and improve reasoning capabilities across the graph.
+
+<p align="center"> <img src="image/kg3.png" width="250"> </p>
+
 
 ## Dataset 
 1. MITRE ATT&CK: [Link](https://attack.mitre.org/resources/attack-data-and-tools/#excel-attack). Download all the XLSX files from both ICS and Enterprise.
