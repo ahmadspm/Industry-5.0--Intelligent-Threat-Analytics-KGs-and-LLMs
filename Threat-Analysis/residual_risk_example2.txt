@@ -1,0 +1,69 @@
+// ---- Assumes a GDS graph 'commAttack' over :Product-[:ATTACKABLE]-(:Product) exists ----
+// ---- and Louvain etc. are optional. This computes SRI for HMI nodes only. ----
+
+// 1) Get max betweenness to normalize [0..1]
+CALL {
+  CALL gds.betweenness.stream('commAttack')
+  YIELD score
+  RETURN max(score) AS maxBet
+}
+
+// 2) Get per-node betweenness (cascade factor), keep only HMIs
+CALL {
+  CALL gds.betweenness.stream('commAttack')
+  YIELD nodeId, score
+  RETURN nodeId, score
+}
+WITH gds.util.asNode(nodeId) AS p, score AS bet, maxBet
+WHERE toUpper(p.type) = 'HMI'
+
+// 3) Probability of compromise from inbound ATTACKABLE edges: 1 - Π(1 - pExploit)
+OPTIONAL MATCH (:Product)-[rin:ATTACKABLE]->(p)
+WITH p, bet, maxBet, [x IN collect(coalesce(rin.pExploit, 0.0))] AS peList
+WITH p, bet, maxBet,
+     CASE WHEN size(peList)=0
+          THEN 0.0
+          ELSE 1.0 - reduce(prod=1.0, v IN peList | prod * (1.0 - v))
+     END AS pComp
+
+// 4) Impact severity: prefer CVE baseScore; else map node.severity
+OPTIONAL MATCH (p)-[:HAS_CVE|:AFFECTS]->(c:CVE)
+WITH p, pComp, bet, maxBet,
+     max(
+       coalesce(
+         toFloat(c.baseScore),                                       // if present (0..10)
+         CASE toLower(coalesce(c.baseSeverity,''))                    // map to CVSS-ish
+           WHEN 'critical' THEN 9.0
+           WHEN 'high'     THEN 7.0
+           WHEN 'medium'   THEN 5.0
+           WHEN 'moderate' THEN 5.0
+           WHEN 'low'      THEN 3.0
+           ELSE 1.0
+         END
+       )
+     ) AS maxCvss
+WITH p, pComp, bet, maxBet,
+     coalesce(maxCvss/10.0,                                         // 0..1
+              CASE toLower(coalesce(p.severity,''))                  // fallback
+                WHEN 'critical' THEN 0.9
+                WHEN 'high'     THEN 0.7
+                WHEN 'medium'   THEN 0.5
+                WHEN 'low'      THEN 0.3
+                ELSE 0.1
+              END) AS impact
+
+// 5) Cascading factor: normalized betweenness (0..1)
+WITH p, pComp, impact,
+     CASE WHEN maxBet = 0 THEN 0.0 ELSE bet / maxBet END AS cascade
+
+// 6) Final SRI (0..10)
+RETURN
+  p.product_id                                      AS product,
+  p.type                                            AS type,     // 'HMI'
+  round(pComp,   4)                                 AS probCompromise,
+  round(impact,  4)                                 AS impactSeverity,
+  round(cascade, 4)                                 AS cascadingFactor,
+  round(pComp * impact * cascade, 4)                AS SRI_0to1,
+  round(10.0 * pComp * impact * cascade, 2)         AS SRI_0to10
+ORDER BY SRI_0to10 DESC
+LIMIT 25;

@@ -1,0 +1,39 @@
+CALL gds.pageRank.write(
+  'attackGraph',
+  {
+    writeProperty: 'pageRank',
+    maxIterations: 20
+  }
+)
+YIELD nodePropertiesWritten, computeMillis, writeMillis;
+
+
+// compute max pageRank across Products that have it
+MATCH (n:Product)
+WHERE n.pageRank IS NOT NULL
+WITH max(n.pageRank) AS maxPR
+// set normalized value (guard divide-by-zero)
+MATCH (n:Product)
+WHERE n.pageRank IS NOT NULL
+SET n.pageRank_norm = CASE WHEN maxPR = 0 THEN 0.0 ELSE toFloat(n.pageRank) / maxPR END;
+
+
+MATCH (p:Product)
+WHERE p.product_id IS NOT NULL
+  AND toLower(p.product_id) CONTAINS 'scada'
+  AND p.pageRank IS NOT NULL
+  AND p.criticality IS NOT NULL
+
+SET p.influenceRisk = toFloat(p.pageRank) * toFloat(p.criticality),
+    p.influenceRiskLevel =
+      CASE
+        WHEN toFloat(p.influenceRisk) >= 6.0 THEN 'HIGH'
+        WHEN toFloat(p.influenceRisk) >= 3.0 THEN 'MEDIUM'
+        WHEN toFloat(p.influenceRisk) >  0.0 THEN 'LOW'
+        ELSE 'NONE'
+      END
+
+RETURN p.product_id AS product_id, p.name AS name, p.type AS type,
+       p.pageRank AS pageRank, p.criticality AS criticality,
+       p.influenceRisk AS influenceRisk, p.influenceRiskLevel AS risk
+ORDER BY p.influenceRisk DESC;

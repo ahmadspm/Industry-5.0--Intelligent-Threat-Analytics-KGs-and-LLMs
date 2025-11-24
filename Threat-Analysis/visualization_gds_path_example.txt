@@ -1,0 +1,13 @@
+MATCH (src:Product {name:"Quality_Station_3"}), (dst:Product {name:"HMI_Terminal_1"})
+CALL gds.shortestPath.yens.stream('q1_raw', {
+  sourceNode: id(src),
+  targetNode: id(dst),
+  k: 12
+})
+YIELD path, totalCost
+RETURN path
+ORDER BY size(relationships(path)) ASC, totalCost ASC
+LIMIT 12;
+
+
+

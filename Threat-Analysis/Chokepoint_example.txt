@@ -1,0 +1,66 @@
+CALL gds.betweenness.stream('attackGraph')
+YIELD nodeId, score AS bet
+WITH gds.util.asNode(nodeId) AS n, bet
+WITH n, bet, n.severity AS severity, n.exposure AS exposure
+WITH n, bet,
+     CASE
+       WHEN severity IN ['Low','LOW','low'] THEN 1.0
+       WHEN severity IN ['Medium','MEDIUM','medium'] THEN 2.0
+       WHEN severity IN ['High','HIGH','high'] THEN 3.0
+       WHEN toFloat(severity) IS NOT NULL THEN toFloat(severity)
+       ELSE 1.0
+     END AS sev_num,
+     CASE
+       WHEN exposure IS NOT NULL AND exposure ENDS WITH '%' THEN toFloat(replace(exposure,'%','')) / 100.0
+       WHEN toFloat(exposure) IS NOT NULL THEN toFloat(exposure)
+       ELSE 1.0
+     END AS exp_num
+RETURN
+  n.product_id                           AS product,
+  round(bet, 4)                          AS betweenness,
+  round(bet * sev_num * exp_num, 4)      AS chokepointPriority
+ORDER BY chokepointPriority DESC
+LIMIT 10;
+
+
+// 1) Collect Product nodes that occur on ATTACKABLE paths to the robot
+CALL {
+  MATCH pth = (a:Product)-[:ATTACKABLE*3..5]->(:Product {type:'robot'})
+  UNWIND nodes(pth) AS n
+  WITH DISTINCT n
+  WHERE n:Product AND n.product_id IS NOT NULL
+  RETURN collect(id(n)) AS allowedPids
+}
+
+// 2) Betweenness centrality from GDS, restricted to allowed Products
+CALL gds.betweenness.stream('attackGraph')
+YIELD nodeId, score AS bet
+WITH gds.util.asNode(nodeId) AS p, bet, allowedPids
+WHERE p:Product AND id(p) IN allowedPids
+
+// 3) Join CVEs to pull exploitabilityScore and baseVector
+OPTIONAL MATCH (p)-[:HAS_VULNERABILITY]->(c:CVE)
+WITH p, bet, collect(DISTINCT c.baseVector) AS baseVectors, c
+
+// Normalize exploitabilityScore whether numeric or string with '%'
+WITH p, bet, baseVectors,
+     CASE
+       WHEN c.impactScore IS NULL THEN NULL
+       WHEN toString(c.impactScore) CONTAINS '%'
+         THEN toFloat(replace(toString(c.impactScore), '%', ''))
+       ELSE toFloat(toString(c.impactScore))
+     END AS explVal
+
+// Aggregate per product (avg/max over non-null values)
+WITH p, bet, baseVectors,
+     avg(explVal) AS exploitabilityAvg,
+     max(explVal) AS exploitabilityMax
+RETURN
+  p.product_id                                      AS product,
+  p.type                                            AS type,
+  round(bet/100, 4)                                     AS betweenness,
+  round(coalesce(exploitabilityAvg, 0.0), 4)        AS exploitabilityAvg,
+  round(bet/100 * coalesce(exploitabilityAvg, 0.0), 4)  AS Node_criticality
+  
+ORDER BY Node_criticality DESC
+LIMIT 10;
