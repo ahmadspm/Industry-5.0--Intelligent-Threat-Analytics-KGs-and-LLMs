@@ -1,7 +1,7 @@
 # I5_Threat_Analysis_System
 This repository hosts the I5 Threat Analysis System, a resilience framework that integrates Knowledge Graphs and Large Language Models (LLMs) to support threat analysis for Industry 5.0 environments (BRIDG-ICS).
 
-<p align="center"> <img src="image/KG_complete.png" width="450"> </p>
+<p align="center"> <img src="image/kg_complete.png" width="450"> </p>
 
 ## BRIDG-ICS Knowledge Graph Structure
 The BRIDG-ICS knowledge graph is constructed by combining three interconnected sub-graphs:
