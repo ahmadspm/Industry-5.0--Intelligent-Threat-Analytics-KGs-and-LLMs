@@ -5,6 +5,7 @@ Nandiya, P., Mohsin, A., Janicke, H., Ibrahim, A., & Sarker, I. H. (2025). BRIDG
 # BRIDG-ICS Knowledge Graph Overview
 BRIDG-ICS integrates industrial assets, vulnerability taxonomies, adversarial behaviours, and operational dependencies into a unified Industrial Security Knowledge Graph.
 The system consists of three major sub-graphs:
+<p align="center"> <img src="image/kg_complete.png" width="450"> </p>
 
 ## Intelligent Context Awware Knowledge Graph Structure
 The BRIDG-ICS knowledge graph is constructed by combining three interconnected sub-graphs:
