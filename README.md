@@ -1,7 +1,8 @@
-# Citation Notice
+# Citation Note
 If you use BRIDG-ICS datasets, KG schemas, enrichment pipelines, or threat reasoning modules, please cite:
 
 Nandiya, P., Mohsin, A., Janicke, H., Ibrahim, A., & Sarker, I. H. (2025). BRIDG-ICS: An AI-grounded, Knowledge-Graph-driven framework for context-aware threat reasoning and cyber-resilience in Industry 5.0 systems
+<img width="786" height="323" alt="image" src="https://github.com/user-attachments/assets/a18fe0ae-df5a-4228-92f4-4d620fd9b624" />
 
 # BRIDG-ICS Knowledge Graph Overview
 BRIDG-ICS integrates industrial assets, vulnerability taxonomies, adversarial behaviours, and operational dependencies into a unified Industrial Security Knowledge Graph.
