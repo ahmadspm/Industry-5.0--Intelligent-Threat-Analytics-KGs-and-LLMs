@@ -1,0 +1,39 @@
+CALL gds.graph.drop('attackGraph', false);
+
+CALL gds.graph.project(
+  'attackGraph',
+  { Product: { label: 'Product', properties: ['isOT'] } },   // or omit properties if not needed
+  {
+    ATTACKABLE: {
+      type: 'ATTACKABLE',
+      orientation: 'NATURAL',
+      properties: {
+        riskWeight: { property: 'riskWeight', defaultValue: 0.2 }
+      }
+    }
+  }
+);
+
+
+// Put embeddings into the projection as node property 'fastrp'
+CALL gds.fastRP.mutate('attackGraph', {
+  embeddingDimension: 128,
+  // relationshipWeightProperty: 'riskWeight',   // only if you projected it
+  randomSeed: 42,
+  mutateProperty: 'fastrp'
+})
+YIELD nodePropertiesWritten;
+
+
+CALL gds.knn.stream('attackGraph', {
+  nodeProperties: ['fastrp'],
+  topK: 5,
+  sampleRate: 1.0,
+  concurrency: 1,
+  randomSeed: 42
+})
+YIELD node1, node2, similarity
+WITH gds.util.asNode(node1) AS s, gds.util.asNode(node2) AS d, similarity
+WHERE id(s) < id(d)   // prevents writing both directions
+MERGE (s)-[r:HAS_POSSIBLE_COMMUNICATES_WITH]->(d)
+SET r.similarity = similarity;
