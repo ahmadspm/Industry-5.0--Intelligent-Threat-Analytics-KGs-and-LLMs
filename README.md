@@ -74,7 +74,7 @@ These scripts define the KG schema, load cybersecurity datasets (CVE, CWE, CAPEC
 
 ## Threat Analytics Queries (centrality, PageRank, attack-path reasoning)
 
-# Intelligent Scenarios simulations and Threats Analytics
+## Intelligent Scenarios simulations and Threats Analytics
 - Verify KG Construction
 - MATCH (n) RETURN labels(n), count(*) ORDER BY count(*) DESC LIMIT 10;
 - MATCH ()-[r]->() RETURN type(r), count(*) ORDER BY count(*) DESC LIMIT 10;
