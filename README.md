@@ -53,19 +53,34 @@ Notes: If you don't want to do the preprocessing, you can just go to Phase 1.
 All Cypher scripts for constructing and enriching the BRIDG-ICS Knowledge Graph are located in: Phase1-KG/cypher/
 These scripts are intended to be executed on a Neo4j instance (with Graph Data Science (GDS) installed) to build the Industry 5.0 threat-analytics KG from the cleaned CSV datasets.
 
-## Cypher Scripts Overview
+# BRIDG-ICS Knowledge Graph (KG) Setup
 
-Update the list below with your actual filenames in Phase1-KG/cypher:
+All Cypher scripts required to build the BRIDG-ICS Industry 5.0 Knowledge Graph are located in: https://github.com/ahmadspm/Industry-5.0--Intelligent-Threat-Analytics-KGs-and-LLMs/tree/main/Phase1-KG/cypher
+These scripts define the KG schema, load cybersecurity datasets (CVE, CWE, CAPEC, ATT&CK), integrate Industry 5.0 testbed assets, and generate enriched semantic relations used for intelligent threat analytics.
 
-- Phase1-KG/cypher/FILENAME_01_constraints.cypher
-- Creates node labels, uniqueness constraints, and indexes for core KG entities (e.g., Product, CVE, CWE, CAPEC, Technique).
-- Phase1-KG/cypher/FILENAME_02_load_nodes.cypher
-Loads nodes from the cleaned CSV files (e.g., CVE, CWE, CAPEC, ATT&CK, ICSA, local testbed assets) into Neo4j.
-Phase1-KG/cypher/FILENAME_03_load_relationships.cypher
-Creates relationships between entities (e.g., HAS_CWE, HAS_CAPEC, HAS_TECHNIQUE, DEPLOYS, LOCATED_IN, COMMUNICATES_WITH), forming the core Industry 5.0 security KG.
-Phase1-KG/cypher/FILENAME_04_semantic_enrichment.cypher
-Adds LLM-/GDS-derived links (e.g., HAS_POSSIBLE_CWE, HAS_POSSIBLE_TECHNIQUE, HAS_POSSIBLE_COMMUNICATES_WITH) using similarity scores, classifier outputs, or embedding-driven link prediction.
-Phase1-KG/cypher/FILENAME_05_threat_analysis_examples.cypher
+## Pre-requisites 
+
+- Install Neo4j 5.x and the Graph Data Science (GDS) plugin.
+- install all other dependencies, select Neo4j stack and infrastrucure to run locally or Cloud 
+- Copy all CSV files from Phase1-KG/ into your Neo4j import/ directory.
+- Open Neo4j Browser (http://localhost:7474).
+- Run the Cypher scripts from Phase1-KG/cypher/ in the following order:
+
+## Schema & Constraints
+
+- Node Loaders (Products, CVE, CWE, CAPEC, ATT&CK, ICSA, testbed assets)
+- Relationship Loaders
+- Semantic Enrichment Scripts (LLM/GDS-based inferred links) (install required LLMs See our article details for LLMs driven KG Enrichment pipeline)
+
+## Threat Analytics Queries (centrality, PageRank, attack-path reasoning)
+
+# Intelligent Scenarios simulations and Threats Analytics
+- Verify KG Construction
+- MATCH (n) RETURN labels(n), count(*) ORDER BY count(*) DESC LIMIT 10;
+- MATCH ()-[r]->() RETURN type(r), count(*) ORDER BY count(*) DESC LIMIT 10;
+
+
+Once loaded, the BRIDG-ICS KG supports enrichment-driven threat reasoning, multi-hop attack-path analysis, and resilience assessment for Industry 5.0 cyber–physical systems.NAME_05_threat_analysis_examples.cypher
 Contains example queries for multi-hop reasoning, attack-path exploration, centrality analysis, and risk-ranking over the constructed KG.
 You can adapt/expand this list as needed (e.g., separate files for ATT&CK, ICS testbed, or synthetic data).
 
