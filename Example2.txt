@@ -1,0 +1,69 @@
+#------- Yen with cumulative riskWeight---------------
+
+// ===================================
+// Yen Algorithm + cumulative riskWeight
+
+MATCH (e:Product) WHERE e.name IN ["MQTT_Broker_1"]
+WITH collect(id(e)) AS entryIds
+MATCH (t:Product) WHERE t.name IN ["Safety_PLC_2"]
+WITH entryIds, collect(id(t)) AS targetIds
+
+UNWIND entryIds AS s
+UNWIND targetIds AS t
+
+CALL gds.shortestPath.yens.stream('q1_raw', {
+  sourceNode: s,
+  targetNode: t,
+  k: $K_PATHS
+})
+YIELD path
+
+WITH
+  path,
+  head(nodes(path)) AS srcNode,
+  last(nodes(path)) AS dstNode,
+  size(relationships(path)) AS hop,
+
+  // cumulative riskWeight
+  reduce(r = 0.0, rel IN relationships(path) |
+        r + coalesce(rel.riskWeight,0)) AS totalRisk
+
+WITH
+  coalesce(srcNode.name, srcNode.product_id, elementId(srcNode)) AS source,
+  coalesce(dstNode.name, dstNode.product_id, elementId(dstNode)) AS target,
+  collect(path) AS paths,
+  collect(hop)  AS hops,
+  collect(totalRisk) AS risks
+
+RETURN
+  source,
+  target,
+  size(paths) AS path_count,
+
+  // hop statistics
+  CASE WHEN size(hops)=0 THEN null
+       ELSE reduce(s = 0.0, h IN hops | s + h) / toFloat(size(hops))
+  END AS avg_hops,
+
+  CASE WHEN size(hops)=0 THEN null
+       ELSE reduce(m = head(hops), h IN hops | CASE WHEN h < m THEN h ELSE m END)
+  END AS min_hops,
+
+  CASE WHEN size(hops)=0 THEN null
+       ELSE reduce(m = head(hops), h IN hops | CASE WHEN h > m THEN h ELSE m END)
+  END AS max_hops,
+
+  // cumulative risk statistics
+  CASE WHEN size(risks)=0 THEN null
+       ELSE reduce(s = 0.0, r IN risks | s + r) / toFloat(size(risks))
+  END AS avg_risk,
+
+  CASE WHEN size(risks)=0 THEN null
+       ELSE reduce(m = head(risks), r IN risks | CASE WHEN r < m THEN r ELSE m END)
+  END AS min_risk,
+
+  CASE WHEN size(risks)=0 THEN null
+       ELSE reduce(m = head(risks), r IN risks | CASE WHEN r > m THEN r ELSE m END)
+  END AS max_risk
+
+ORDER BY avg_hops ASC;
