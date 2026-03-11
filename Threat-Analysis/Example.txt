@@ -84,5 +84,4 @@ RETURN
   coalesce(dst.product_id, dst.name) AS target,
   totalCost,
   [n IN nodes(path) | coalesce(n.product_id, n.name)] AS path_nodes
-ORDER BY totalCost ASC
-LIMIT 5;
+ORDER BY totalCost ASC;
